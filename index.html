@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中国 AI 相关案例地图 · China AI Case Map</title>
+  <meta name="description" content="中国 AI 相关法律案例的可视化地图，按省份、年份、技术类型、法律权益类型筛选。">
+
+  <!-- 字体 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- 样式 -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- D3.js 用于绘制地图（本地引入，离线可用） -->
+  <script src="d3.min.js"></script>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ============== 顶部 ============== -->
+  <header class="header">
+    <div class="header-text">
+      <div class="eyebrow">King &amp; Wood Mallesons · Song Haiyan Team</div>
+      <h1>
+        中国 AI 相关案例地图
+        <span class="english">China AI-Related Case Map</span>
+      </h1>
+      <p class="lede">
+        汇集全国法院涉 AI 相关案件，按管辖法院分布于地图。
+        点击省份查看该地案件，使用筛选器按年份、技术类型或法律权益类型缩小范围。
+      </p>
+    </div>
+    <div class="header-stats">
+      <div class="stat">
+        <div class="stat-num" id="stat-cases">—</div>
+        <div class="stat-label">cases</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="stat-provinces">—</div>
+        <div class="stat-label">jurisdictions</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="stat-team">—</div>
+        <div class="stat-label">team articles</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============== 筛选器 ============== -->
+  <div class="filters">
+    <div class="filter-group">
+      <span class="filter-label">年份</span>
+      <div class="filter-chips" id="filter-year-chips"></div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">技术类型</span>
+      <div class="filter-chips" id="filter-tech-chips"></div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">法律权益</span>
+      <div class="filter-chips" id="filter-claim-chips"></div>
+    </div>
+
+    <div class="filter-group">
+      <button class="chip" id="filter-team-toggle">📖 仅看团队文章</button>
+    </div>
+
+    <input
+      type="text"
+      class="search-input"
+      id="search-input"
+      placeholder="搜索案件名 / 案号 / 城市..."
+    />
+
+    <button class="reset-btn" id="reset-btn">清空筛选</button>
+  </div>
+
+  <!-- ============== 主体 ============== -->
+  <div class="main-grid">
+
+    <!-- 左：地图 -->
+    <section class="map-section">
+      <!-- 最高法院横幅 -->
+      <div class="spc-banner" id="spc-banner">
+        <div class="spc-banner-content">
+          <div class="spc-banner-title">最高人民法院</div>
+          <div class="spc-banner-subtitle">Supreme People's Court · 点击查看</div>
+        </div>
+        <div class="spc-banner-count">—</div>
+      </div>
+
+      <!-- 地图 -->
+      <div class="map-wrapper">
+        <svg id="china-map" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="map-tooltip" id="map-tooltip"></div>
+      </div>
+
+      <!-- 地图图例 -->
+      <div class="map-legend">
+        <span><span class="legend-swatch" style="background: var(--province-empty);"></span>暂无案件</span>
+        <span><span class="legend-swatch" style="background: var(--province-default);"></span>有案件</span>
+        <span><span class="legend-swatch" style="background: var(--province-active);"></span>已选中</span>
+      </div>
+    </section>
+
+    <!-- 右：案件列表 -->
+    <section class="cases-section">
+      <div class="cases-header">
+        <h2 class="cases-title" id="cases-title-text">
+          全部案件 <span class="sub">/ All Cases</span>
+        </h2>
+        <span class="cases-count-badge" id="cases-count-badge">—</span>
+      </div>
+      <div class="cases-list" id="cases-list">
+        <div class="loading">载入中…</div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ============== 页脚 ============== -->
+  <footer class="footer">
+    <p class="footer-text">
+      数据来源于公开判决与新闻报道，案号格式遵循《人民法院案件受理书》规范。
+      本地图为内部研究与学习用途，非正式法律意见。
+    </p>
+    <div class="footer-credit">
+      © <strong>SEAGULL SONG</strong> 2026 · KING &amp; WOOD MALLESONS<br>
+      案例更新至 2026 年 4 月
+    </div>
+  </footer>
+
+</div>
+
+<!-- ============== 案件详情弹窗 ============== -->
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal">
+    <button class="modal-close" id="modal-close" aria-label="关闭">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- 数据 + 主程序 -->
+<script src="china-geo.js"></script>
+<script src="cases.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
