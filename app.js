@@ -337,9 +337,7 @@ function renderPanel() {
       <div class="panel-header">
         <button class="back-link" id="back-to-overview">${I18N[lang].backToOverview}</button>
         <div class="panel-title">
-          <h2>${provinceName(state.selectedProvince)}
-            ${lang === 'zh' ? `<span class="sub">/ ${PROVINCE_I18N[state.selectedProvince].en}</span>` : ''}
-          </h2>
+          <h2>${provinceName(state.selectedProvince)}</h2>
           <span class="panel-count">${totalCases} ${I18N[lang].countSuffix || I18N[lang].statCases}</span>
         </div>
       </div>
@@ -352,8 +350,7 @@ function renderPanel() {
         <div class="court-card ${isSpecial ? 'special' : ''}" data-court="${court.name}">
           <div class="court-card-info">
             ${isSpecial ? `<div class="court-special-badge">${lang === 'zh' ? '最高司法机关' : 'Supreme Court'}</div>` : ''}
-            <div class="court-name">${court.name}</div>
-            <div class="court-name-en">${COURT_I18N[court.name] || ''}</div>
+            <div class="court-name">${courtName(court.name)}</div>
           </div>
           <div class="court-card-meta">
             <div class="court-count">${court.cases.length}</div>
@@ -374,9 +371,7 @@ function renderPanel() {
       <div class="panel-header">
         <button class="back-link" id="back-to-courts">${I18N[lang].backToCourts}</button>
         <div class="panel-title">
-          <h2>${courtZh}
-            ${lang === 'zh' && COURT_I18N[courtZh] ? `<span class="sub">/ ${COURT_I18N[courtZh]}</span>` : ''}
-          </h2>
+          <h2>${courtName(courtZh)}</h2>
           <span class="panel-count">${cases.length} ${I18N[lang].countSuffix || I18N[lang].statCases}</span>
         </div>
       </div>
@@ -388,7 +383,6 @@ function renderPanel() {
       html += '<div class="cases-list">';
       cases.forEach(c => {
         const title = lang === 'en' && c.title_en ? c.title_en : c.title_zh;
-        const titleAlt = lang === 'zh' && c.title_en ? c.title_en : (lang === 'en' ? c.title_zh : '');
         const note = lang === 'en' && c.note_en ? c.note_en : c.note_zh;
 
         let tags = '';
@@ -402,7 +396,6 @@ function renderPanel() {
             <div class="case-card-row1">
               <div style="flex:1; min-width:0;">
                 <div class="case-title">${title}</div>
-                ${titleAlt ? `<div class="case-title-en">${titleAlt}</div>` : ''}
               </div>
               <div class="case-year">${c.year}</div>
             </div>
@@ -463,9 +456,7 @@ function openModal(c) {
   const courtLabel = lang === 'en' ? (courtEn || courtZh) : courtZh;
 
   const title = lang === 'en' && c.title_en ? c.title_en : c.title_zh;
-  const titleAlt = lang === 'zh' && c.title_en ? c.title_en : (lang === 'en' && c.title_zh ? c.title_zh : '');
   const note = lang === 'en' && c.note_en ? c.note_en : c.note_zh;
-  const noteAlt = lang === 'zh' && c.note_en ? c.note_en : (lang === 'en' && c.note_zh ? c.note_zh : '');
 
   let tags = '';
   tags += `<span class="case-tag">${issueName(c.issue)}</span>`;
@@ -476,7 +467,6 @@ function openModal(c) {
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-eyebrow">${provinceName(c.province === '最高人民法院' ? '北京市' : c.province)} · ${courtLabel}</div>
     <div class="modal-title">${title}</div>
-    ${titleAlt ? `<div class="modal-title-en">${titleAlt}</div>` : ''}
     <div class="modal-tags">${tags}</div>
     <div class="modal-meta">
       ${c.caseNumber ? `
@@ -490,7 +480,7 @@ function openModal(c) {
       <div class="modal-meta-label">${I18N[lang].issueLabel}</div>
       <div class="modal-meta-value">${issueName(c.issue)}</div>
     </div>
-    ${note ? `<div class="modal-note">${note}${noteAlt ? `<span class="modal-note-en">${noteAlt}</span>` : ''}</div>` : ''}
+    ${note ? `<div class="modal-note">${note}</div>` : ''}
     <a class="modal-link-btn" href="${c.url}" target="_blank" rel="noopener">
       ${I18N[lang].viewSource}
     </a>
