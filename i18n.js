@@ -67,7 +67,7 @@ const I18N = {
   en: {
     siteTitle: "China AI Legal Case Map",
     siteSubtitle: "中国 AI 司法实践案例图",
-    eyebrow: "Song Haiyan Team · Digital Economy & AI",
+    eyebrow: "Seagull Song Team · Digital Economy & AI",
     lede: "A curated atlas of AI-related cases adjudicated by Chinese courts at all levels, organised by jurisdiction and key legal issues. Click a province to explore local practice, then drill into specific courts.",
 
     statCases: "Cases",
@@ -112,7 +112,7 @@ const I18N = {
     loading: "Loading…",
 
     footerNote: "Data compiled from public judgments, news reports and team research. For research purposes only; not legal advice.",
-    footerCredit: "© Song Haiyan 2026 · King & Wood",
+    footerCredit: "© Seagull Song Team 2026 · King & Wood",
     footerUpdate: "Cases updated through April 2026"
   }
 };
