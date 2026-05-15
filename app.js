@@ -1,193 +1,167 @@
 // ===================================================================
-// 中国 AI 相关案例地图  —  主程序
-// 编辑说明: 一般无需修改此文件。新增/修改案件只需编辑 cases.js
+// 中国 AI 司法实践案例图 · 主程序
+// 编辑说明：一般不需改此文件
 // ===================================================================
-
-// ---- 省份名称归一化映射（地图名 → 数据名）----
-const PROVINCE_ALIAS = {
-  '新疆维吾尔自治区': '新疆维吾尔自治区',
-  '西藏自治区': '西藏自治区',
-  '内蒙古自治区': '内蒙古自治区',
-  '青海省': '青海省',
-  '四川省': '四川省',
-  '黑龙江省': '黑龙江省',
-  '甘肃省': '甘肃省',
-  '云南省': '云南省',
-  '广西壮族自治区': '广西壮族自治区',
-  '湖南省': '湖南省',
-  '陕西省': '陕西省',
-  '广东省': '广东省',
-  '吉林省': '吉林省',
-  '河北省': '河北省',
-  '湖北省': '湖北省',
-  '贵州省': '贵州省',
-  '山东省': '山东省',
-  '江西省': '江西省',
-  '河南省': '河南省',
-  '辽宁省': '辽宁省',
-  '山西省': '山西省',
-  '安徽省': '安徽省',
-  '福建省': '福建省',
-  '浙江省': '浙江省',
-  '江苏省': '江苏省',
-  '重庆市': '重庆市',
-  '宁夏回族自治区': '宁夏回族自治区',
-  '海南省': '海南省',
-  '台湾省': '台湾省',
-  '北京市': '北京市',
-  '天津市': '天津市',
-  '上海市': '上海市',
-  '香港特别行政区': '香港特别行政区',
-  '澳门特别行政区': '澳门特别行政区'
-};
-
-// 省份显示短名
-const PROVINCE_SHORT = {
-  '新疆维吾尔自治区': '新疆', '西藏自治区': '西藏', '内蒙古自治区': '内蒙古',
-  '青海省': '青海', '四川省': '四川', '黑龙江省': '黑龙江',
-  '甘肃省': '甘肃', '云南省': '云南', '广西壮族自治区': '广西',
-  '湖南省': '湖南', '陕西省': '陕西', '广东省': '广东',
-  '吉林省': '吉林', '河北省': '河北', '湖北省': '湖北',
-  '贵州省': '贵州', '山东省': '山东', '江西省': '江西',
-  '河南省': '河南', '辽宁省': '辽宁', '山西省': '山西',
-  '安徽省': '安徽', '福建省': '福建', '浙江省': '浙江',
-  '江苏省': '江苏', '重庆市': '重庆', '宁夏回族自治区': '宁夏',
-  '海南省': '海南', '台湾省': '台湾', '北京市': '北京',
-  '天津市': '天津', '上海市': '上海',
-  '香港特别行政区': '香港', '澳门特别行政区': '澳门'
-};
 
 // ---- 状态 ----
 const state = {
-  selectedProvince: null,    // null = 显示全部
-  selectedSPC: false,         // 是否选中了最高法
+  view: 'overview',          // 'overview' | 'province' | 'court'
+  selectedProvince: null,
+  selectedCourt: null,
+  lang: 'zh',
   filterYear: 'all',
+  filterIssue: new Set(),
   filterTech: new Set(),
-  filterClaim: new Set(),
-  filterStatus: 'all',
   filterTeamOnly: false,
   searchText: ''
 };
 
 // ---- 工具函数 ----
-function getCasesForProvince(provinceName) {
+
+// 当前语言
+function L() { return state.lang; }
+
+// 获取省份在地图上的可见案件数（北京特殊：含最高法）
+function getProvinceMapCount(provinceName) {
+  if (provinceName === '北京市') {
+    return CASES.filter(c => c.province === '北京市' || c.province === '最高人民法院').length;
+  }
+  return CASES.filter(c => c.province === provinceName).length;
+}
+
+// 获取省份下的所有案件（北京特殊：含最高法）
+function getCasesInProvince(provinceName) {
+  if (provinceName === '北京市') {
+    return CASES.filter(c => c.province === '北京市' || c.province === '最高人民法院');
+  }
   return CASES.filter(c => c.province === provinceName);
 }
 
-function getSPCCases() {
-  return CASES.filter(c => c.province === '最高人民法院');
+// 获取省份下的法院列表（按案件数排序）
+function getCourtsInProvince(provinceName) {
+  const cases = getCasesInProvince(provinceName);
+  const grouped = {};
+  cases.forEach(c => {
+    const key = c.city || c.province;
+    if (!grouped[key]) grouped[key] = { name: key, cases: [], special: c.province === '最高人民法院' };
+    grouped[key].cases.push(c);
+  });
+  return Object.values(grouped).sort((a, b) => {
+    if (a.special) return -1;  // 最高法置顶
+    if (b.special) return 1;
+    return b.cases.length - a.cases.length;
+  });
 }
 
-function getProvinceCount(provinceName) {
-  return getCasesForProvince(provinceName).length;
-}
-
-function getFilteredCases() {
-  let pool = CASES;
-
-  // 省份/最高法筛选
-  if (state.selectedSPC) {
-    pool = getSPCCases();
-  } else if (state.selectedProvince) {
-    pool = getCasesForProvince(state.selectedProvince);
-  }
-
-  // 年份
+// 获取所有应用筛选条件后的案件集合（用于统计 / 列表底层）
+function applyFilters(pool) {
   if (state.filterYear !== 'all') {
     pool = pool.filter(c => String(c.year) === state.filterYear);
   }
-
-  // 技术类型
+  if (state.filterIssue.size > 0) {
+    pool = pool.filter(c => state.filterIssue.has(c.issue));
+  }
   if (state.filterTech.size > 0) {
     pool = pool.filter(c => c.tech.some(t => state.filterTech.has(t)));
   }
-
-  // 法律权益类型
-  if (state.filterClaim.size > 0) {
-    pool = pool.filter(c => c.claim.some(t => state.filterClaim.has(t)));
-  }
-
-  // 状态
-  if (state.filterStatus !== 'all') {
-    pool = pool.filter(c => c.status === state.filterStatus);
-  }
-
-  // 团队文章
   if (state.filterTeamOnly) {
     pool = pool.filter(c => c.teamArticle);
   }
-
-  // 搜索
   if (state.searchText.trim()) {
     const q = state.searchText.trim().toLowerCase();
     pool = pool.filter(c =>
-      c.title.toLowerCase().includes(q) ||
+      c.title_zh.toLowerCase().includes(q) ||
+      (c.title_en || '').toLowerCase().includes(q) ||
       (c.caseNumber || '').toLowerCase().includes(q) ||
       (c.city || '').toLowerCase().includes(q) ||
-      c.tech.some(t => t.toLowerCase().includes(q)) ||
-      c.claim.some(t => t.toLowerCase().includes(q))
+      c.tech.some(t => t.toLowerCase().includes(q))
     );
   }
-
-  // 按年份倒序
-  pool = [...pool].sort((a, b) => {
-    if (b.year !== a.year) return b.year - a.year;
-    return (a.province || '').localeCompare(b.province || '', 'zh');
-  });
-
   return pool;
 }
 
-// ---- 渲染：顶部统计 ----
+// 取最终展示案件列表
+function getDisplayCases() {
+  let pool;
+  if (state.view === 'court' && state.selectedCourt) {
+    pool = getCasesInProvince(state.selectedProvince).filter(c =>
+      (c.city || c.province) === state.selectedCourt
+    );
+  } else if (state.view === 'province' && state.selectedProvince) {
+    pool = getCasesInProvince(state.selectedProvince);
+  } else {
+    pool = [...CASES];
+  }
+  pool = applyFilters(pool);
+  return pool.sort((a, b) => {
+    if (b.year !== a.year) return b.year - a.year;
+    return (a.title_zh || '').localeCompare(b.title_zh || '', 'zh');
+  });
+}
+
+// 名称翻译
+function provinceName(zhName) {
+  const entry = PROVINCE_I18N[zhName];
+  if (!entry) return zhName;
+  return L() === 'en' ? entry.en : entry.zh;
+}
+function courtName(zhName) {
+  if (L() === 'en') return COURT_I18N[zhName] || zhName;
+  return zhName;
+}
+function issueName(zh) {
+  if (L() === 'en') return ISSUE_I18N[zh] || zh;
+  return zh;
+}
+function techName(zh) {
+  if (L() === 'en') return TECH_I18N[zh] || zh;
+  return zh;
+}
+
+// ============================================================
+// 渲染：顶部统计
+// ============================================================
 function renderStats() {
-  const totalCases = CASES.length;
-  const provinces = new Set(CASES.filter(c => c.province !== '最高人民法院').map(c => c.province));
-  const teamCount = CASES.filter(c => c.teamArticle).length;
-
-  document.getElementById('stat-cases').textContent = totalCases;
-  document.getElementById('stat-provinces').textContent = provinces.size;
-  document.getElementById('stat-team').textContent = teamCount;
+  document.getElementById('stat-cases').textContent = CASES.length;
+  const provinces = new Set(CASES.map(c => c.province));
+  // 算"管辖法院"数量
+  const courts = new Set(CASES.map(c => c.city || c.province));
+  document.getElementById('stat-courts').textContent = courts.size;
+  document.getElementById('stat-team').textContent = CASES.filter(c => c.teamArticle).length;
 }
 
-// ---- 渲染：最高法横幅 ----
-function renderSPCBanner() {
-  const spcCases = getSPCCases();
-  const banner = document.getElementById('spc-banner');
-  banner.querySelector('.spc-banner-count').textContent = spcCases.length;
-  banner.classList.toggle('active', state.selectedSPC);
-}
-
-// ---- 渲染：地图 ----
+// ============================================================
+// 渲染：地图
+// ============================================================
 function renderMap() {
   const svg = d3.select('#china-map');
   svg.selectAll('*').remove();
 
+  const isCompact = state.view !== 'overview';
   const width = 800;
-  const height = 600;
+  const height = isCompact ? 500 : 600;
 
   svg.attr('viewBox', `0 0 ${width} ${height}`);
 
-  // 中国地图投影
   const projection = d3.geoMercator()
     .center([104, 36])
-    .scale(620)
-    .translate([width / 2, height / 2 + 30]);
+    .scale(isCompact ? 540 : 620)
+    .translate([width / 2, height / 2 + 20]);
 
   const path = d3.geoPath().projection(projection);
 
   const g = svg.append('g');
 
-  // 绘制省份
-  const provinces = g.selectAll('.province-group')
+  const groups = g.selectAll('.province-group')
     .data(CHINA_GEO.features)
     .enter()
     .append('g')
     .attr('class', 'province-group');
 
-  provinces.append('path')
+  groups.append('path')
     .attr('class', d => {
       const name = d.properties.name;
-      const count = getProvinceCount(name);
+      const count = getProvinceMapCount(name);
       const cls = ['province'];
       if (count === 0) cls.push('empty');
       if (state.selectedProvince === name) cls.push('active');
@@ -197,71 +171,70 @@ function renderMap() {
     .attr('data-name', d => d.properties.name)
     .on('mouseover', function(event, d) {
       const name = d.properties.name;
-      const count = getProvinceCount(name);
+      const count = getProvinceMapCount(name);
       if (count === 0) return;
-      showTooltip(event, name, count);
+      showTooltip(event, provinceName(name), count);
     })
-    .on('mousemove', function(event) {
-      moveTooltip(event);
-    })
-    .on('mouseout', function() {
-      hideTooltip();
-    })
+    .on('mousemove', function(event) { moveTooltip(event); })
+    .on('mouseout', function() { hideTooltip(); })
     .on('click', function(event, d) {
       const name = d.properties.name;
-      const count = getProvinceCount(name);
+      const count = getProvinceMapCount(name);
       if (count === 0) return;
 
-      // 切换选中
       if (state.selectedProvince === name) {
         state.selectedProvince = null;
+        state.selectedCourt = null;
+        state.view = 'overview';
       } else {
         state.selectedProvince = name;
-        state.selectedSPC = false;
+        state.selectedCourt = null;
+        state.view = 'province';
       }
+      hideTooltip();
       updateAll();
     });
 
-  // 添加省份标签（仅对有案件且面积足够大的省份）
-  provinces.append('text')
-    .attr('class', 'province-label')
+  // 标签
+  groups.append('text')
+    .attr('class', d => {
+      return state.selectedProvince === d.properties.name ? 'province-label active' : 'province-label';
+    })
     .attr('x', d => projection(d.properties.cp)[0])
     .attr('y', d => projection(d.properties.cp)[1])
     .text(d => {
-      const count = getProvinceCount(d.properties.name);
+      const count = getProvinceMapCount(d.properties.name);
       if (count === 0) return '';
-      return PROVINCE_SHORT[d.properties.name] || '';
-    })
-    .style('pointer-events', 'none');
+      return provinceName(d.properties.name);
+    });
 
-  // 案件数小徽章
-  provinces.filter(d => getProvinceCount(d.properties.name) > 0)
-    .append('circle')
+  // 案件数徽章（金色圆点 + 数字）
+  const withCases = groups.filter(d => getProvinceMapCount(d.properties.name) > 0);
+
+  withCases.append('circle')
     .attr('cx', d => projection(d.properties.cp)[0])
-    .attr('cy', d => projection(d.properties.cp)[1] + 10)
-    .attr('r', 7)
-    .attr('fill', 'var(--accent)')
-    .attr('stroke', 'white')
+    .attr('cy', d => projection(d.properties.cp)[1] + 12)
+    .attr('r', 8)
+    .attr('fill', d => state.selectedProvince === d.properties.name ? '#B8956A' : '#1A1A1A')
+    .attr('stroke', '#FFFFFF')
     .attr('stroke-width', 1.5)
     .style('pointer-events', 'none');
 
-  provinces.filter(d => getProvinceCount(d.properties.name) > 0)
-    .append('text')
+  withCases.append('text')
     .attr('x', d => projection(d.properties.cp)[0])
-    .attr('y', d => projection(d.properties.cp)[1] + 13)
+    .attr('y', d => projection(d.properties.cp)[1] + 15)
     .attr('text-anchor', 'middle')
-    .attr('font-family', 'var(--font-mono)')
-    .attr('font-size', '9px')
+    .attr('font-family', 'IBM Plex Mono, monospace')
+    .attr('font-size', '9.5px')
     .attr('font-weight', '600')
-    .attr('fill', 'white')
-    .text(d => getProvinceCount(d.properties.name))
+    .attr('fill', '#FFFFFF')
+    .text(d => getProvinceMapCount(d.properties.name))
     .style('pointer-events', 'none');
 }
 
-// ---- Tooltip ----
 function showTooltip(event, name, count) {
   const tt = document.getElementById('map-tooltip');
-  tt.innerHTML = `${name} <span class="count">${count} 案</span>`;
+  tt.innerHTML = `${name} <span class="count">${count}</span>`;
   tt.classList.add('visible');
   moveTooltip(event);
 }
@@ -276,7 +249,9 @@ function hideTooltip() {
   document.getElementById('map-tooltip').classList.remove('visible');
 }
 
-// ---- 渲染：筛选 chip ----
+// ============================================================
+// 渲染：筛选 chips
+// ============================================================
 function renderFilters() {
   // 年份
   const years = [...new Set(CASES.map(c => c.year))].sort((a, b) => b - a);
@@ -285,7 +260,7 @@ function renderFilters() {
 
   const allYearChip = document.createElement('button');
   allYearChip.className = 'chip' + (state.filterYear === 'all' ? ' active' : '');
-  allYearChip.textContent = '全部';
+  allYearChip.textContent = I18N[L()].filterAll;
   allYearChip.onclick = () => { state.filterYear = 'all'; updateAll(); };
   yearContainer.appendChild(allYearChip);
 
@@ -297,14 +272,29 @@ function renderFilters() {
     yearContainer.appendChild(chip);
   });
 
-  // 技术类型
+  // 争议焦点
+  const issueContainer = document.getElementById('filter-issue-chips');
+  issueContainer.innerHTML = '';
+  Object.keys(ISSUE_I18N).forEach(issue => {
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (state.filterIssue.has(issue) ? ' active' : '');
+    chip.textContent = issueName(issue);
+    chip.onclick = () => {
+      if (state.filterIssue.has(issue)) state.filterIssue.delete(issue);
+      else state.filterIssue.add(issue);
+      updateAll();
+    };
+    issueContainer.appendChild(chip);
+  });
+
+  // 技术
   const techs = [...new Set(CASES.flatMap(c => c.tech))].sort();
   const techContainer = document.getElementById('filter-tech-chips');
   techContainer.innerHTML = '';
   techs.forEach(t => {
     const chip = document.createElement('button');
     chip.className = 'chip' + (state.filterTech.has(t) ? ' active' : '');
-    chip.textContent = t;
+    chip.textContent = techName(t);
     chip.onclick = () => {
       if (state.filterTech.has(t)) state.filterTech.delete(t);
       else state.filterTech.add(t);
@@ -313,113 +303,196 @@ function renderFilters() {
     techContainer.appendChild(chip);
   });
 
-  // 法律权益
-  const claims = [...new Set(CASES.flatMap(c => c.claim))].sort();
-  const claimContainer = document.getElementById('filter-claim-chips');
-  claimContainer.innerHTML = '';
-  claims.forEach(t => {
-    const chip = document.createElement('button');
-    chip.className = 'chip' + (state.filterClaim.has(t) ? ' active' : '');
-    chip.textContent = t;
-    chip.onclick = () => {
-      if (state.filterClaim.has(t)) state.filterClaim.delete(t);
-      else state.filterClaim.add(t);
-      updateAll();
-    };
-    claimContainer.appendChild(chip);
-  });
-
-  // 团队文章 toggle
+  // 团队
   const teamChip = document.getElementById('filter-team-toggle');
   teamChip.classList.toggle('active', state.filterTeamOnly);
+  teamChip.textContent = I18N[L()].filterTeamOnly;
 }
 
-// ---- 渲染：案件列表 ----
-function renderCases() {
-  const cases = getFilteredCases();
-  const list = document.getElementById('cases-list');
-  const countBadge = document.getElementById('cases-count-badge');
-  const title = document.getElementById('cases-title-text');
+// ============================================================
+// 渲染：右侧 panel（根据 state.view 决定渲染法院列表或案件列表）
+// ============================================================
+function renderPanel() {
+  const panel = document.getElementById('panel-section');
+  const viewport = document.getElementById('viewport');
 
-  // 标题
-  if (state.selectedSPC) {
-    title.innerHTML = '最高人民法院 <span class="sub">/ Supreme People\'s Court</span>';
-  } else if (state.selectedProvince) {
-    title.innerHTML = `${state.selectedProvince}`;
-  } else {
-    title.innerHTML = '全部案件 <span class="sub">/ All Cases</span>';
-  }
+  // 切换视图 class
+  viewport.classList.remove('view-overview', 'view-detail');
+  viewport.classList.add(state.view === 'overview' ? 'view-overview' : 'view-detail');
 
-  countBadge.textContent = `共 ${cases.length} 案`;
-
-  if (cases.length === 0) {
-    list.innerHTML = '<div class="empty-state">当前筛选条件下没有匹配案件<br><br>试试清空筛选或换一个省份</div>';
+  if (state.view === 'overview') {
+    panel.innerHTML = '';
     return;
   }
 
-  list.innerHTML = '';
-  cases.forEach((c, idx) => {
-    const card = document.createElement('div');
-    card.className = 'case-card';
-    card.style.animation = `slideUp 0.3s ease ${idx * 0.02}s both`;
-    card.onclick = (e) => {
-      if (e.target.closest('.case-link')) return;
-      openModal(c);
-    };
+  const lang = L();
+  let html = '';
 
-    let courtLabel = c.province === '最高人民法院' ? '最高人民法院' : (c.city || c.province);
+  if (state.view === 'province') {
+    // 显示该省的法院列表
+    const courts = getCourtsInProvince(state.selectedProvince);
+    const totalCases = getCasesInProvince(state.selectedProvince).length;
 
-    let tags = '';
-    c.tech.forEach(t => tags += `<span class="case-tag">${t}</span>`);
-    c.claim.forEach(t => tags += `<span class="case-tag claim">${t}</span>`);
-    if (c.status === 'pending') tags += `<span class="case-tag status-pending">审理中</span>`;
-    if (c.teamArticle) tags += `<span class="case-tag team">📖 团队文章</span>`;
-
-    card.innerHTML = `
-      <div class="case-card-row1">
-        <div style="flex: 1; min-width: 0;">
-          <div class="case-court">${courtLabel}</div>
-          <div class="case-title">${c.title}</div>
+    html += `
+      <div class="panel-header">
+        <button class="back-link" id="back-to-overview">${I18N[lang].backToOverview}</button>
+        <div class="panel-title">
+          <h2>${provinceName(state.selectedProvince)}
+            ${lang === 'zh' ? `<span class="sub">/ ${PROVINCE_I18N[state.selectedProvince].en}</span>` : ''}
+          </h2>
+          <span class="panel-count">${totalCases} ${I18N[lang].countSuffix || I18N[lang].statCases}</span>
         </div>
-        <div class="case-year">${c.year}</div>
       </div>
-      ${c.caseNumber ? `<div class="case-number">${c.caseNumber}</div>` : ''}
-      <div class="case-meta">${tags}</div>
-      ${c.note ? `<div class="case-note">${c.note}</div>` : ''}
-      <a class="case-link" href="${c.url}" target="_blank" rel="noopener" title="打开原文">↗</a>
+      <div class="courts-list">
     `;
-    list.appendChild(card);
+
+    courts.forEach(court => {
+      const isSpecial = court.special;
+      html += `
+        <div class="court-card ${isSpecial ? 'special' : ''}" data-court="${court.name}">
+          <div class="court-card-info">
+            ${isSpecial ? `<div class="court-special-badge">${lang === 'zh' ? '最高司法机关' : 'Supreme Court'}</div>` : ''}
+            <div class="court-name">${court.name}</div>
+            <div class="court-name-en">${COURT_I18N[court.name] || ''}</div>
+          </div>
+          <div class="court-card-meta">
+            <div class="court-count">${court.cases.length}</div>
+            <div class="court-arrow">→</div>
+          </div>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+
+  } else if (state.view === 'court') {
+    // 显示案件列表
+    const cases = getDisplayCases();
+    const courtZh = state.selectedCourt;
+
+    html += `
+      <div class="panel-header">
+        <button class="back-link" id="back-to-courts">${I18N[lang].backToCourts}</button>
+        <div class="panel-title">
+          <h2>${courtZh}
+            ${lang === 'zh' && COURT_I18N[courtZh] ? `<span class="sub">/ ${COURT_I18N[courtZh]}</span>` : ''}
+          </h2>
+          <span class="panel-count">${cases.length} ${I18N[lang].countSuffix || I18N[lang].statCases}</span>
+        </div>
+      </div>
+    `;
+
+    if (cases.length === 0) {
+      html += `<div class="empty-state">${I18N[lang].emptyState}</div>`;
+    } else {
+      html += '<div class="cases-list">';
+      cases.forEach(c => {
+        const title = lang === 'en' && c.title_en ? c.title_en : c.title_zh;
+        const titleAlt = lang === 'zh' && c.title_en ? c.title_en : (lang === 'en' ? c.title_zh : '');
+        const note = lang === 'en' && c.note_en ? c.note_en : c.note_zh;
+
+        let tags = '';
+        tags += `<span class="case-tag">${issueName(c.issue)}</span>`;
+        c.tech.forEach(t => tags += `<span class="case-tag tech">${techName(t)}</span>`);
+        if (c.status === 'pending') tags += `<span class="case-tag status-pending">${I18N[lang].statusPending}</span>`;
+        if (c.teamArticle) tags += `<span class="case-tag team">◆ ${I18N[lang].teamBadge}</span>`;
+
+        html += `
+          <div class="case-card" data-case-id="${cases.indexOf(c)}">
+            <div class="case-card-row1">
+              <div style="flex:1; min-width:0;">
+                <div class="case-title">${title}</div>
+                ${titleAlt ? `<div class="case-title-en">${titleAlt}</div>` : ''}
+              </div>
+              <div class="case-year">${c.year}</div>
+            </div>
+            ${c.caseNumber ? `<div class="case-number">${c.caseNumber}</div>` : ''}
+            <div class="case-meta">${tags}</div>
+            ${note ? `<div class="case-note">${note}</div>` : ''}
+          </div>
+        `;
+      });
+      html += '</div>';
+    }
+  }
+
+  panel.innerHTML = html;
+
+  // 绑定事件
+  panel.querySelectorAll('.court-card').forEach(el => {
+    el.onclick = () => {
+      state.selectedCourt = el.dataset.court;
+      state.view = 'court';
+      updateAll();
+    };
   });
+
+  panel.querySelectorAll('.case-card').forEach(el => {
+    el.onclick = () => {
+      const cases = getDisplayCases();
+      const c = cases[parseInt(el.dataset.caseId)];
+      if (c) openModal(c);
+    };
+  });
+
+  const backOverview = document.getElementById('back-to-overview');
+  if (backOverview) backOverview.onclick = () => {
+    state.view = 'overview';
+    state.selectedProvince = null;
+    state.selectedCourt = null;
+    updateAll();
+  };
+
+  const backCourts = document.getElementById('back-to-courts');
+  if (backCourts) backCourts.onclick = () => {
+    state.view = 'province';
+    state.selectedCourt = null;
+    updateAll();
+  };
 }
 
-// ---- 模态弹窗 ----
+// ============================================================
+// 模态弹窗
+// ============================================================
 function openModal(c) {
+  const lang = L();
   const backdrop = document.getElementById('modal-backdrop');
-  const courtLabel = c.province === '最高人民法院' ? '最高人民法院' : `${c.province}${c.city ? ' · ' + c.city : ''}`;
+
+  const courtZh = c.city || c.province;
+  const courtEn = COURT_I18N[courtZh] || '';
+  const courtLabel = lang === 'en' ? (courtEn || courtZh) : courtZh;
+
+  const title = lang === 'en' && c.title_en ? c.title_en : c.title_zh;
+  const titleAlt = lang === 'zh' && c.title_en ? c.title_en : (lang === 'en' && c.title_zh ? c.title_zh : '');
+  const note = lang === 'en' && c.note_en ? c.note_en : c.note_zh;
+  const noteAlt = lang === 'zh' && c.note_en ? c.note_en : (lang === 'en' && c.note_zh ? c.note_zh : '');
 
   let tags = '';
-  c.tech.forEach(t => tags += `<span class="case-tag">${t}</span>`);
-  c.claim.forEach(t => tags += `<span class="case-tag claim">${t}</span>`);
-  if (c.status === 'pending') tags += `<span class="case-tag status-pending">审理中</span>`;
-  if (c.teamArticle) tags += `<span class="case-tag team">📖 团队文章</span>`;
+  tags += `<span class="case-tag">${issueName(c.issue)}</span>`;
+  c.tech.forEach(t => tags += `<span class="case-tag tech">${techName(t)}</span>`);
+  if (c.status === 'pending') tags += `<span class="case-tag status-pending">${I18N[lang].statusPending}</span>`;
+  if (c.teamArticle) tags += `<span class="case-tag team">◆ ${I18N[lang].teamBadge}</span>`;
 
   document.getElementById('modal-body').innerHTML = `
-    <div class="modal-court">${courtLabel}</div>
-    <div class="modal-title">${c.title}</div>
+    <div class="modal-eyebrow">${provinceName(c.province === '最高人民法院' ? '北京市' : c.province)} · ${courtLabel}</div>
+    <div class="modal-title">${title}</div>
+    ${titleAlt ? `<div class="modal-title-en">${titleAlt}</div>` : ''}
     <div class="modal-tags">${tags}</div>
     <div class="modal-meta">
       ${c.caseNumber ? `
-        <div class="modal-meta-label">案号</div>
+        <div class="modal-meta-label">${I18N[lang].caseNumberLabel}</div>
         <div class="modal-meta-value mono">${c.caseNumber}</div>
       ` : ''}
-      <div class="modal-meta-label">年份</div>
+      <div class="modal-meta-label">${I18N[lang].yearLabel}</div>
       <div class="modal-meta-value">${c.year}</div>
-      <div class="modal-meta-label">状态</div>
-      <div class="modal-meta-value">${c.status === 'pending' ? '审理中' : '已审结'}</div>
+      <div class="modal-meta-label">${I18N[lang].statusLabel}</div>
+      <div class="modal-meta-value">${c.status === 'pending' ? I18N[lang].statusPending : I18N[lang].statusDecided}</div>
+      <div class="modal-meta-label">${I18N[lang].issueLabel}</div>
+      <div class="modal-meta-value">${issueName(c.issue)}</div>
     </div>
-    ${c.note ? `<div class="modal-note">${c.note}</div>` : ''}
+    ${note ? `<div class="modal-note">${note}${noteAlt ? `<span class="modal-note-en">${noteAlt}</span>` : ''}</div>` : ''}
     <a class="modal-link-btn" href="${c.url}" target="_blank" rel="noopener">
-      查看原文 →
+      ${I18N[lang].viewSource}
     </a>
   `;
   backdrop.classList.add('visible');
@@ -429,9 +502,32 @@ function closeModal() {
   document.getElementById('modal-backdrop').classList.remove('visible');
 }
 
-// ---- 事件 ----
+// ============================================================
+// 国际化：刷新所有 data-i18n 文本
+// ============================================================
+function applyI18n() {
+  const lang = L();
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = I18N[lang][key] || key;
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    el.placeholder = I18N[lang][key] || key;
+  });
+
+  // 语言切换按钮高亮
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === lang);
+  });
+}
+
+// ============================================================
+// 事件
+// ============================================================
 function setupEvents() {
-  // 关闭弹窗
   document.getElementById('modal-close').onclick = closeModal;
   document.getElementById('modal-backdrop').onclick = (e) => {
     if (e.target.id === 'modal-backdrop') closeModal();
@@ -440,56 +536,54 @@ function setupEvents() {
     if (e.key === 'Escape') closeModal();
   });
 
-  // 最高法横幅
-  document.getElementById('spc-banner').onclick = () => {
-    state.selectedSPC = !state.selectedSPC;
-    if (state.selectedSPC) state.selectedProvince = null;
-    updateAll();
-  };
-
-  // 搜索框
   document.getElementById('search-input').addEventListener('input', (e) => {
     state.searchText = e.target.value;
-    renderCases();
+    if (state.view === 'court') renderPanel();
   });
 
-  // 重置
   document.getElementById('reset-btn').onclick = () => {
+    state.view = 'overview';
     state.selectedProvince = null;
-    state.selectedSPC = false;
+    state.selectedCourt = null;
     state.filterYear = 'all';
+    state.filterIssue.clear();
     state.filterTech.clear();
-    state.filterClaim.clear();
-    state.filterStatus = 'all';
     state.filterTeamOnly = false;
     state.searchText = '';
     document.getElementById('search-input').value = '';
     updateAll();
   };
 
-  // 团队文章 toggle
   document.getElementById('filter-team-toggle').onclick = () => {
     state.filterTeamOnly = !state.filterTeamOnly;
     updateAll();
   };
+
+  // 语言切换
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.onclick = () => {
+      state.lang = btn.dataset.lang;
+      updateAll();
+    };
+  });
 }
 
-// ---- 主刷新 ----
+// ============================================================
+// 主刷新
+// ============================================================
 function updateAll() {
+  applyI18n();
   renderMap();
-  renderSPCBanner();
   renderFilters();
-  renderCases();
+  renderPanel();
 }
 
-// ---- 启动 ----
 function init() {
   renderStats();
   setupEvents();
   updateAll();
 }
 
-// 等 DOM 准备好后启动
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
