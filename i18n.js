@@ -1,5 +1,5 @@
 // ===================================================================
-// 中英双语词典 · Bilingual Dictionary
+// 中英单语词典 · Monolingual Dictionary
 // 编辑说明：如要修改某条翻译，找到对应键名修改后保存即可
 // ===================================================================
 
@@ -7,7 +7,7 @@ const I18N = {
   zh: {
     // ---- 顶部 ----
     siteTitle: "中国 AI 司法实践案例图",
-    siteSubtitle: "China AI Legal Case Map",
+    siteSubtitle: "", // 已移除英文，实现纯中文
     eyebrow: "宋海燕团队 · 数字经济与人工智能",
     lede: "汇集全国各级法院涉人工智能案件，按管辖法院分布及争议焦点分类。点击省份探索该地实践，进而查看具体法院的案件。",
 
@@ -28,7 +28,7 @@ const I18N = {
 
     // ---- 视图标签 ----
     overviewTitle: "全国案件分布",
-    overviewSubtitle: "Nationwide Distribution",
+    overviewSubtitle: "", // 已移除英文，实现纯中文
     backToOverview: "← 返回全图",
     courtsInProvince: "管辖法院",
     casesInCourt: "案件",
@@ -66,8 +66,8 @@ const I18N = {
 
   en: {
     siteTitle: "China AI Legal Case Map",
-    siteSubtitle: "中国 AI 司法实践案例图",
-    eyebrow: "Seagull Song Team · Digital Economy & AI",
+    siteSubtitle: "", // 已移除中文，实现纯英文
+    eyebrow: "Song Haiyan Team · Digital Economy & AI",
     lede: "A curated atlas of AI-related cases adjudicated by Chinese courts at all levels, organised by jurisdiction and key legal issues. Click a province to explore local practice, then drill into specific courts.",
 
     statCases: "Cases",
@@ -84,7 +84,7 @@ const I18N = {
     resetFilters: "Clear filters",
 
     overviewTitle: "Nationwide Distribution",
-    overviewSubtitle: "全国案件分布",
+    overviewSubtitle: "", // 已移除中文，实现纯英文
     backToOverview: "← Back to map",
     courtsInProvince: "Courts",
     casesInCourt: "Cases",
@@ -112,7 +112,7 @@ const I18N = {
     loading: "Loading…",
 
     footerNote: "Data compiled from public judgments, news reports and team research. For research purposes only; not legal advice.",
-    footerCredit: "© Seagull Song Team 2026 · King & Wood",
+    footerCredit: "© Song Haiyan 2026 · King & Wood",
     footerUpdate: "Cases updated through April 2026"
   }
 };
