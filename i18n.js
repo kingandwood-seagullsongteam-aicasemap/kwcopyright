@@ -82,7 +82,7 @@ const I18N = {
   en: {
     siteTitle: "China AI Legal Case Map",
     eyebrow: "Seagull Song Team",
-    lede: "A curated atlas of AI-related cases adjudicated by Chinese courts at all levels, organised by jurisdiction and key legal issues. Click a province to explore local practice, then drill into specific courts.",
+    lede: "A curated atlas of AI-related cases before Chinese courts at all levels, organised by jurisdiction and key issues. Click a province to explore local practice, then view cases at individual courts.",
 
     statCases: "Cases",
     statCourts: "Courts",
