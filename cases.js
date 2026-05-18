@@ -559,22 +559,7 @@ const CASES = [
   },
 
   // ============= 江苏 =============
-  {
-    province: "江苏省",
-    city: "扬州市中级人民法院",
-    image: "images/case-35.jpg",
-    title_zh: "万某诉某公司AI文生图著作权侵权案",
-    title_en: "Wan v. Company (AI Text-to-Image Copyright)",
-    caseNumber: "",
-    year: 2026,
-    issue: "AIGC 可版权性",
-    tech: ["AI文生图"],
-    note_zh: "AI 生成图片不构成作品",
-    note_en: "AI-generated image held NOT to constitute a work",
-    status: "decided",
-    url: "https://mp.weixin.qq.com/s/FnjSQlO_zAl5qJhpciPiDg"
-  },
-  {
+  
     province: "江苏省",
     city: "无锡市中级人民法院",
     image: "images/case-36.jpg",
